@@ -223,12 +223,44 @@ tr:last-child td { border-bottom:none; }
 .kinput:focus { border-color:var(--accent); }
 .kinput::placeholder { color:var(--dim); }
 
+/* ── СТАТИСТИКА ── */
+.stats-panel {
+  background:var(--bg2); border:1px solid var(--border); border-radius:6px;
+  padding:14px; margin-bottom:12px;
+}
+.stats-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:12px;
+}
+.scard {
+  background:var(--bg3); border:1px solid var(--border); border-radius:5px;
+  padding:10px 12px; text-align:center;
+}
+.scard .sc-label { font-size:9px; color:var(--dim); letter-spacing:1px; text-transform:uppercase; }
+.scard .sc-val   { font-family:var(--font-d); font-size:18px; margin:4px 0 2px; }
+.scard .sc-sub   { font-size:10px; color:var(--dim); }
+
+.winbar-wrap { margin-bottom:10px; }
+.winbar-label { font-size:10px; color:var(--dim); letter-spacing:1px; margin-bottom:5px; display:flex; justify-content:space-between; }
+.winbar { height:6px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+.winbar-fill { height:100%; border-radius:3px; transition:width .5s; background:var(--green); }
+
+.asset-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; }
+.astat {
+  background:var(--bg3); border:1px solid var(--border); border-radius:4px;
+  padding:7px 8px;
+}
+.astat .as-name { font-size:10px; margin-bottom:3px; }
+.astat .as-pnl  { font-family:var(--font-d); font-size:13px; }
+.astat .as-cnt  { font-size:10px; color:var(--dim); margin-top:2px; }
+
 /* ── RESPONSIVE ── */
 @media(max-width:620px){
   .overview { grid-template-columns:1fr 1fr; }
   .main-panel { grid-template-columns:1fr; }
   .strat-row { grid-template-columns:1fr; }
   .keys-row  { grid-template-columns:1fr; }
+  .stats-grid { grid-template-columns:1fr 1fr; }
+  .asset-stats { grid-template-columns:1fr 1fr; }
 }
 </style>
 </head>
@@ -351,6 +383,67 @@ tr:last-child td { border-bottom:none; }
     </div>
     <div class="nim-text" id="nimText">Нажми "ЗАПРОС NIM" для анализа выбранного актива...<span class="cursor"></span></div>
   </div>
+</div>
+
+<!-- СТАТИСТИКА -->
+<div class="stats-panel">
+  <div class="panel-title">СТАТИСТИКА · LIVE <b id="sessionTime">00:00:00</b></div>
+
+  <div class="stats-grid">
+    <div class="scard">
+      <div class="sc-label">Всего сделок</div>
+      <div class="sc-val" id="st-total">0</div>
+      <div class="sc-sub">закрытых</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Винрейт</div>
+      <div class="sc-val" id="st-wr" style="color:var(--dim)">—</div>
+      <div class="sc-sub">прибыльных</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Средняя сделка</div>
+      <div class="sc-val" id="st-avg" style="color:var(--dim)">—</div>
+      <div class="sc-sub">$/сделка</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Макс. просадка</div>
+      <div class="sc-val" id="st-dd" style="color:var(--dim)">—</div>
+      <div class="sc-sub">пик→дно</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Лучшая сделка</div>
+      <div class="sc-val" id="st-best" style="color:var(--green)">—</div>
+      <div class="sc-sub" id="st-best-asset">—</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Худшая сделка</div>
+      <div class="sc-val" id="st-worst" style="color:var(--red)">—</div>
+      <div class="sc-sub" id="st-worst-asset">—</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Профит фактор</div>
+      <div class="sc-val" id="st-pf" style="color:var(--dim)">—</div>
+      <div class="sc-sub">прибыль/убыток</div>
+    </div>
+    <div class="scard">
+      <div class="sc-label">Открытых поз.</div>
+      <div class="sc-val" id="st-open">0</div>
+      <div class="sc-sub">сейчас активных</div>
+    </div>
+  </div>
+
+  <div class="winbar-wrap">
+    <div class="winbar-label">
+      <span>ВИНРЕЙТ</span>
+      <span id="st-wr-pct">0% прибыльных</span>
+    </div>
+    <div class="winbar">
+      <div class="winbar-fill" id="winbarFill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="panel-title" style="margin-bottom:8px">P&L ПО АКТИВАМ</div>
+  <div class="asset-stats" id="assetStats"></div>
 </div>
 
 <!-- CONTROLS -->
@@ -582,6 +675,7 @@ function checkPosition(k, price) {
     document.getElementById('totalPnl').textContent = `${state.totalPnl>=0?'+':''}$${state.totalPnl.toFixed(2)}`;
     document.getElementById('totalPnl').style.color = state.totalPnl>=0?'var(--green)':'var(--red)';
     document.getElementById('tradeCount').textContent = state.trades.length;
+    updateStats();
   }
 }
 
@@ -740,7 +834,96 @@ function drawEMA(ctx, prices, period, color, W, H, mn, mx, sx) {
 }
 
 // ══════════════════════════════════════════════
-// NVIDIA NIM
+// СТАТИСТИКА
+// ══════════════════════════════════════════════
+let sessionStart = null;
+let sessionTimer = null;
+let peakPnl = 0;
+let maxDrawdown = 0;
+
+function updateStats() {
+  const trades = state.trades;
+  const total  = trades.length;
+
+  document.getElementById('st-total').textContent = total;
+  document.getElementById('st-open').textContent  = countOpenPositions();
+
+  if (total === 0) { buildAssetStats(); return; }
+
+  // Винрейт
+  const wins   = trades.filter(t=>t.pnl>0).length;
+  const wr     = Math.round(wins/total*100);
+  const wrEl   = document.getElementById('st-wr');
+  wrEl.textContent = wr+'%';
+  wrEl.style.color = wr>=50?'var(--green)':wr>=40?'var(--yellow)':'var(--red)';
+  document.getElementById('st-wr-pct').textContent = `${wins} из ${total} прибыльных`;
+  document.getElementById('winbarFill').style.width = wr+'%';
+  document.getElementById('winbarFill').style.background =
+    wr>=55?'var(--green)':wr>=40?'var(--yellow)':'var(--red)';
+
+  // Средняя сделка
+  const avg = state.totalPnl / total;
+  const avgEl = document.getElementById('st-avg');
+  avgEl.textContent = (avg>=0?'+':'')+'$'+avg.toFixed(2);
+  avgEl.style.color = avg>=0?'var(--green)':'var(--red)';
+
+  // Просадка
+  let peak=0, dd=0, running=0;
+  [...trades].reverse().forEach(t=>{
+    running+=t.pnl;
+    if(running>peak) peak=running;
+    const cur=peak-running;
+    if(cur>dd) dd=cur;
+  });
+  const ddEl = document.getElementById('st-dd');
+  ddEl.textContent = dd>0?'-$'+dd.toFixed(2):'$0';
+  ddEl.style.color = dd>0?'var(--red)':'var(--green)';
+
+  // Лучшая / худшая
+  const best  = trades.reduce((a,b)=>b.pnl>a.pnl?b:a, trades[0]);
+  const worst = trades.reduce((a,b)=>b.pnl<a.pnl?b:a, trades[0]);
+  document.getElementById('st-best').textContent = '+$'+best.pnl.toFixed(2);
+  document.getElementById('st-best-asset').textContent = ASSETS[best.asset].emoji+' '+best.asset;
+  document.getElementById('st-worst').textContent = '$'+worst.pnl.toFixed(2);
+  document.getElementById('st-worst-asset').textContent = ASSETS[worst.asset].emoji+' '+worst.asset;
+
+  // Профит фактор
+  const grossW = trades.filter(t=>t.pnl>0).reduce((a,t)=>a+t.pnl,0);
+  const grossL = Math.abs(trades.filter(t=>t.pnl<0).reduce((a,t)=>a+t.pnl,0));
+  const pf = grossL>0?(grossW/grossL).toFixed(2):'∞';
+  const pfEl = document.getElementById('st-pf');
+  pfEl.textContent = pf;
+  pfEl.style.color = parseFloat(pf)>=1.5?'var(--green)':parseFloat(pf)>=1?'var(--yellow)':'var(--red)';
+
+  buildAssetStats();
+}
+
+function buildAssetStats() {
+  const el = document.getElementById('assetStats');
+  el.innerHTML = '';
+  Object.keys(ASSETS).forEach(k=>{
+    const d = state.assets[k];
+    const a = ASSETS[k];
+    const div = document.createElement('div');
+    div.className = 'astat';
+    div.innerHTML = `
+      <div class="as-name" style="color:${a.color}">${a.emoji} ${k}</div>
+      <div class="as-pnl" style="color:${d.pnl>=0?'var(--green)':'var(--red)'}">${d.pnl>=0?'+':''}$${d.pnl.toFixed(2)}</div>
+      <div class="as-cnt">${d.tradeCount} сделок</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function updateSessionTime() {
+  if (!sessionStart) return;
+  const sec = Math.floor((Date.now()-sessionStart)/1000);
+  const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  document.getElementById('sessionTime').textContent =
+    `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// ══════════════════════════════════════════════
 // ══════════════════════════════════════════════
 async function askNim() {
   const k   = state.active;
@@ -836,6 +1019,9 @@ function startBot() {
 
   botTick();
   state.ticker = setInterval(botTick, 3000);
+  sessionStart = Date.now();
+  sessionTimer = setInterval(updateSessionTime, 1000);
+  buildAssetStats();
   // NIM каждые 30 мин
   state.nimTicker = setInterval(()=>{
     Object.keys(ASSETS).forEach(async k=>{
@@ -849,7 +1035,7 @@ function startBot() {
 
 function stopBot() {
   state.running=false;
-  clearInterval(state.ticker); clearInterval(state.nimTicker);
+  clearInterval(state.ticker); clearInterval(state.nimTicker); clearInterval(sessionTimer);
   document.getElementById('led').className='led off';
   document.getElementById('statusTxt').textContent='ОСТАНОВЛЕН';
   document.getElementById('btnStart').disabled=false;
@@ -876,6 +1062,7 @@ function log(msg, type='info') {
 // ══════════════════════════════════════════════
 buildOverview();
 drawChart();
+buildAssetStats();
 log('CommodityBot v2.0 · 8 активов: нефть, золото, серебро, пшеница, кофе, кукуруза, медь, газ','nim');
 log('Стратегия: EMA Crossover + RSI + NVIDIA NIM sentiment фильтр','info');
 log('Введи API ключи и нажми СТАРТ · Бумажный режим — без риска','info');
