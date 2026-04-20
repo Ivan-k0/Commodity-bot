@@ -834,7 +834,45 @@ function drawEMA(ctx, prices, period, color, W, H, mn, mx, sx) {
 }
 
 // ══════════════════════════════════════════════
-// СТАТИСТИКА
+// СОХРАНЕНИЕ КЛЮЧЕЙ
+// ══════════════════════════════════════════════
+function saveKeys() {
+  try {
+    localStorage.setItem('cb_nim', document.getElementById('nimKey').value);
+    localStorage.setItem('cb_hl',  document.getElementById('hlKey').value);
+    localStorage.setItem('cb_mode',document.getElementById('mode').value);
+    localStorage.setItem('cb_size',document.getElementById('size').value);
+    localStorage.setItem('cb_sl',  document.getElementById('sl').value);
+    localStorage.setItem('cb_tp',  document.getElementById('tp').value);
+  } catch(e) {}
+}
+
+function loadKeys() {
+  try {
+    const nim  = localStorage.getItem('cb_nim');
+    const hl   = localStorage.getItem('cb_hl');
+    const mode = localStorage.getItem('cb_mode');
+    const size = localStorage.getItem('cb_size');
+    const sl   = localStorage.getItem('cb_sl');
+    const tp   = localStorage.getItem('cb_tp');
+    if (nim)  { document.getElementById('nimKey').value = nim; }
+    if (hl)   { document.getElementById('hlKey').value  = hl; }
+    if (mode) { document.getElementById('mode').value   = mode; }
+    if (size) { document.getElementById('size').value   = size; }
+    if (sl)   { document.getElementById('sl').value     = sl; }
+    if (tp)   { document.getElementById('tp').value     = tp; }
+    if (nim || hl) log('🔑 Ключи восстановлены из памяти', 'nim');
+  } catch(e) {}
+}
+
+// Автосохранение при изменении полей
+document.addEventListener('DOMContentLoaded', () => {
+  ['nimKey','hlKey','mode','size','sl','tp'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', saveKeys);
+  });
+});
+
+// ══════════════════════════════════════════════
 // ══════════════════════════════════════════════
 let sessionStart = null;
 let sessionTimer = null;
@@ -1022,6 +1060,7 @@ function startBot() {
   sessionStart = Date.now();
   sessionTimer = setInterval(updateSessionTime, 1000);
   buildAssetStats();
+  saveKeys();
   // NIM каждые 30 мин
   state.nimTicker = setInterval(()=>{
     Object.keys(ASSETS).forEach(async k=>{
@@ -1063,7 +1102,17 @@ function log(msg, type='info') {
 buildOverview();
 drawChart();
 buildAssetStats();
-log('CommodityBot v2.0 · 8 активов: нефть, золото, серебро, пшеница, кофе, кукуруза, медь, газ','nim');
+loadKeys();
+
+// Автозапуск если страница была активна
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state.running === false) {
+    // страница вернулась в фокус — показываем уведомление
+    log('⚠️ Страница была в фоне. Нажми СТАРТ для продолжения.', 'warn');
+  }
+});
+
+log('CommodityBot v2.1 · 8 активов: нефть, золото, серебро, пшеница, кофе, кукуруза, медь, газ','nim');
 log('Стратегия: EMA Crossover + RSI + NVIDIA NIM sentiment фильтр','info');
 log('Введи API ключи и нажми СТАРТ · Бумажный режим — без риска','info');
 </script>
